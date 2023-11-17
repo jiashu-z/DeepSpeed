@@ -28,6 +28,8 @@ from .module import PipelineModule, PipelineError
 from . import p2p
 from . import schedule
 
+import time
+
 TARGET_ID = -2
 LOG_STAGE = -2
 DATA_PARALLEL_ID = -2
@@ -649,8 +651,12 @@ class PipelineEngine(DeepSpeedEngine):
             inputs = inputs[0] if len(inputs) == 1 else inputs
             self.pipe_buffers['inputs'][buffer_id] = inputs
 
+        current_time = int(time.time() * 1E6)
+        logger.info(f'Jiashu: time: {current_time}, after input data collection')
         # inputs has no gradient because it is from a cloned tensor
         outputs = super().forward(inputs)
+        current_time = int(time.time() * 1E6)
+        logger.info(f'Jiashu: time: {current_time}, after forward')
 
         # Reset activation checkpointing buffers.
         # Need to call this between evaluation iterations
@@ -1336,6 +1342,8 @@ class PipelineEngine(DeepSpeedEngine):
                 if type(cmd) not in self._INSTRUCTION_MAP:
                     raise RuntimeError(f'{self.__class__.__name__} does not understand instruction {repr(cmd)}')
 
+                current_time = int(time.time() * 1E6)
+                logger.info(f'Jiashu: time: {current_time}, cmd: {cmd}')
                 # Equivalent to: self._exec_forward_pass(buffer_id=0)
                 self._exec_instr = MethodType(self._INSTRUCTION_MAP[type(cmd)], self)
                 self._exec_instr(**cmd.kwargs)
