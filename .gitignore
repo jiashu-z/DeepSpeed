@@ -29,3 +29,5 @@ tests/unit/saved_checkpoint/
 # Dev/IDE data
 .vscode
 .theia
+
+deepspeed/bubblebandit/log_service_pb2*
