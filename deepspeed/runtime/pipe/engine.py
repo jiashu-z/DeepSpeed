@@ -29,6 +29,7 @@ from . import p2p
 from . import schedule
 
 import time
+from deepspeed.bubblebandit import log_client
 
 TARGET_ID = -2
 LOG_STAGE = -2
@@ -1342,8 +1343,9 @@ class PipelineEngine(DeepSpeedEngine):
                 if type(cmd) not in self._INSTRUCTION_MAP:
                     raise RuntimeError(f'{self.__class__.__name__} does not understand instruction {repr(cmd)}')
 
-                current_time = int(time.time() * 1E6)
-                logger.info(f'Jiashu: time: {current_time}, cmd: {cmd}')
+                pid = os.getpid()
+                ts = int(time.time() * 1E6)
+                log_client.log_client.write_log(pid=pid, ts=ts, msg=f'cmd: {repr(cmd)}')
                 # Equivalent to: self._exec_forward_pass(buffer_id=0)
                 self._exec_instr = MethodType(self._INSTRUCTION_MAP[type(cmd)], self)
                 self._exec_instr(**cmd.kwargs)

@@ -1,6 +1,6 @@
 import grpc
-import log_service_pb2_grpc
-import log_service_pb2
+import deepspeed.bubblebandit.log_service_pb2_grpc as log_service_pb2_grpc
+import deepspeed.bubblebandit.log_service_pb2 as log_service_pb2
 
 
 class LogClient:
@@ -18,6 +18,9 @@ class LogClient:
     def write_log(self, pid: int, ts: int, msg: str) -> None:
         log_entry = log_service_pb2.LogEntry(pid=pid, ts=ts, msg=msg)
         self.stub.WriteLog(log_entry)
+
+
+log_client = LogClient()
 
 
 def write_log_test():
