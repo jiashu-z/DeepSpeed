@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+service LogServer {
+  // Write log entry.
+  rpc WriteLog (LogEntry) returns (Empty) {}
+}
+
+message LogEntry {
+  int64 pid = 1;
+  string msg = 2;
+}
+
+message Empty {
+
+}
