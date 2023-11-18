@@ -228,7 +228,7 @@ class DeepSpeedEngine(Module):
         self._is_gradient_accumulation_boundary = None
         self.scale_wrt_gas = None
         self.losses = 0.0
-
+        logger.info(f'Jiashu: DeepSpeedEngine process: {os.getpid()}')
         # for debug purposes - can then debug print: debug_get_module_name(module)
         debug_extract_module_and_param_names(model)
 

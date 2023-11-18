@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0
-
+import os
 # DeepSpeed Team
 
 from types import MethodType
@@ -72,7 +72,7 @@ class PipelineEngine(DeepSpeedEngine):
 
         assert self.zero_optimization_stage(
         ) < ZeroStageEnum.gradients, "ZeRO-2 and ZeRO-3 are incompatible with pipeline parallelism"
-
+        logger.info(f'Jiashu: PipelineEngine process: {os.getpid()}')
         # We schedule the all-reduces, so disable it in super().backward()
         self.enable_backward_allreduce = False
         self.has_bool_tensors = has_bool_tensors
