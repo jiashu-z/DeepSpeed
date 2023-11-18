@@ -10,19 +10,20 @@ class LogClient:
 
     def test(self):
         pid = 1
+        ts = 2
         msg = 'abc'
-        log_entry = log_service_pb2.LogEntry(pid=pid, msg=msg)
+        log_entry = log_service_pb2.LogEntry(pid=pid, ts=ts, msg=msg)
         self.stub.WriteLog(log_entry)
 
-    def write_log(self, pid: int, msg: str) -> None:
-        log_entry = log_service_pb2.LogEntry(pid=pid, msg=msg)
+    def write_log(self, pid: int, ts: int, msg: str) -> None:
+        log_entry = log_service_pb2.LogEntry(pid=pid, ts=ts, msg=msg)
         self.stub.WriteLog(log_entry)
 
 
 def write_log_test():
     log_client = LogClient()
     log_client.test()
-    log_client.write_log(2, 'edf')
+    log_client.write_log(2, 3, 'edf')
 
 
 if __name__ == '__main__':

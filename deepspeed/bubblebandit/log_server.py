@@ -10,8 +10,9 @@ class LogServicer(log_service_pb2_grpc.LogServerServicer):
 
     def WriteLog(self, request, context) -> log_service_pb2.Empty:
         pid = request.pid
+        ts = request.ts
         msg = request.msg
-        print(f'{pid}: {msg}')
+        print(f'{pid}, {ts}: {msg}')
         return log_service_pb2.Empty()
 
 
