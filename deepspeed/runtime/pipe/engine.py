@@ -73,7 +73,6 @@ class PipelineEngine(DeepSpeedEngine):
 
         assert self.zero_optimization_stage(
         ) < ZeroStageEnum.gradients, "ZeRO-2 and ZeRO-3 are incompatible with pipeline parallelism"
-        logger.info(f'Jiashu: PipelineEngine process: {os.getpid()}')
         # We schedule the all-reduces, so disable it in super().backward()
         self.enable_backward_allreduce = False
         self.has_bool_tensors = has_bool_tensors
@@ -652,12 +651,8 @@ class PipelineEngine(DeepSpeedEngine):
             inputs = inputs[0] if len(inputs) == 1 else inputs
             self.pipe_buffers['inputs'][buffer_id] = inputs
 
-        current_time = int(time.time() * 1E6)
-        logger.info(f'Jiashu: time: {current_time}, after input data collection')
         # inputs has no gradient because it is from a cloned tensor
         outputs = super().forward(inputs)
-        current_time = int(time.time() * 1E6)
-        logger.info(f'Jiashu: time: {current_time}, after forward')
 
         # Reset activation checkpointing buffers.
         # Need to call this between evaluation iterations
@@ -1339,13 +1334,20 @@ class PipelineEngine(DeepSpeedEngine):
         # For each step in the schedule
         for step_cmds in pipe_schedule:
             # For each instruction in the step
+            pid = os.getpid()
+            ts = int(time.time() * 1E6)
+            # log_client.log_client.dump_sched(pid=pid, ts=ts, msg=f'start, {repr(step_cmds)}')
             for cmd in step_cmds:
                 if type(cmd) not in self._INSTRUCTION_MAP:
                     raise RuntimeError(f'{self.__class__.__name__} does not understand instruction {repr(cmd)}')
 
-                pid = os.getpid()
-                ts = int(time.time() * 1E6)
-                log_client.log_client.write_log(pid=pid, ts=ts, msg=f'cmd: {repr(cmd)}')
+                # ts = int(time.time() * 1E6)
+                # log_client.log_client.write_log(pid=pid, ts=ts, msg=f'cmdstart: {repr(cmd)}')
+
                 # Equivalent to: self._exec_forward_pass(buffer_id=0)
                 self._exec_instr = MethodType(self._INSTRUCTION_MAP[type(cmd)], self)
                 self._exec_instr(**cmd.kwargs)
+                # ts = int(time.time() * 1E6)
+                # log_client.log_client.write_log(pid=pid, ts=ts, msg=f'cmdend: {repr(cmd)}')
+            ts1 = int(time.time() * 1E6)
+            log_client.log_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')

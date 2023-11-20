@@ -3,6 +3,10 @@ syntax = "proto3";
 service LogServer {
   // Write log entry.
   rpc WriteLog (LogEntry) returns (Empty) {}
+
+  rpc DumpSched (DumpSchedEntry) returns (Empty) {}
+
+  rpc DumpStepSched (DumpStepSchedEntry) returns (Empty) {}
 }
 
 message LogEntry {
@@ -13,4 +17,17 @@ message LogEntry {
 
 message Empty {
 
+}
+
+message DumpSchedEntry {
+  int64 pid = 1;
+  int64 ts = 2;
+  string msg = 3;
+}
+
+message DumpStepSchedEntry {
+  int64 pid = 1;
+  int64 ts0 = 2;
+  int64 ts1 = 3;
+  string msg = 4;
 }
