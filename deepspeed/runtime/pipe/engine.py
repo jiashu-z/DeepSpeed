@@ -1326,6 +1326,19 @@ class PipelineEngine(DeepSpeedEngine):
         schedule.RecvGrad: _exec_recv_grads,
     }
 
+    _INSTRCTION_NAME_MAP = {
+        schedule.OptimizerStep: "OS",
+        schedule.ReduceGrads: "RD",
+        schedule.ReduceTiedGrads: "RT",
+        schedule.LoadMicroBatch: "LB",
+        schedule.ForwardPass: "FP",
+        schedule.BackwardPass: "BP",
+        schedule.SendActivation: "SA",
+        schedule.RecvActivation: "RA",
+        schedule.SendGrad: "SG",
+        schedule.RecvGrad: "RG",
+    }
+
     def _exec_schedule(self, pipe_schedule):
         # Reserve and reset buffers.
         self._reserve_pipe_buffers(pipe_schedule.num_pipe_buffers())
@@ -1338,16 +1351,14 @@ class PipelineEngine(DeepSpeedEngine):
             ts = int(time.time() * 1E6)
             # log_client.log_client.dump_sched(pid=pid, ts=ts, msg=f'start, {repr(step_cmds)}')
             for cmd in step_cmds:
+                instr_ts0 = int(time.time() * 1E6)
                 if type(cmd) not in self._INSTRUCTION_MAP:
                     raise RuntimeError(f'{self.__class__.__name__} does not understand instruction {repr(cmd)}')
-
-                # ts = int(time.time() * 1E6)
-                # log_client.log_client.write_log(pid=pid, ts=ts, msg=f'cmdstart: {repr(cmd)}')
 
                 # Equivalent to: self._exec_forward_pass(buffer_id=0)
                 self._exec_instr = MethodType(self._INSTRUCTION_MAP[type(cmd)], self)
                 self._exec_instr(**cmd.kwargs)
-                # ts = int(time.time() * 1E6)
-                # log_client.log_client.write_log(pid=pid, ts=ts, msg=f'cmdend: {repr(cmd)}')
+                instr_ts1 = int(time.time() * 1E6)
+                log_client.log_client.record_instr(pid=pid, ts0=instr_ts0, ts1=instr_ts1, instr=self._INSTRCTION_NAME_MAP[type(cmd)])
             ts1 = int(time.time() * 1E6)
             log_client.log_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
