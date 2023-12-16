@@ -29,7 +29,13 @@ from . import p2p
 from . import schedule
 
 import time
-from deepspeed.bubblebandit import log_client
+from deepspeed.bubblebandit.log_client import LogClient
+
+import torchvision
+import torchvision.transforms as transforms
+from torchvision.models import resnet152, resnet18
+from copy import copy, deepcopy
+from watchpoints import watch
 
 TARGET_ID = -2
 LOG_STAGE = -2
@@ -53,6 +59,11 @@ mem_cached = 0
 
 def _tensor_bytes(tensor):
     return tensor.numel() * tensor.element_size()
+
+# Cannot work without this wrapper. self.resnet will not be set because PipelineEngine somehow extends nn.Module and nn.Module overrides __setattr__ (noticed by using watch to trace self.__dict__ (will not be changed after self.resnet = resnet18()) and printing dir(self))
+class ResNetWrapper():
+    def __init__(self):
+        self.model = resnet18(pretrained=True)
 
 
 class PipelineEngine(DeepSpeedEngine):
@@ -233,6 +244,10 @@ class PipelineEngine(DeepSpeedEngine):
             self.timers(BACKWARD_REDUCE_GLOBAL_TIMER).stop()
             self.timers(STEP_MICRO_TIMER).start()
             self.timers(STEP_MICRO_TIMER).stop()
+        
+        self.log_client: LogClient = None
+        self.my_resnet: ResNetWrapper = ResNetWrapper()
+
 
     def set_has_attention_mask(self, value):
         assert isinstance(value, bool)
@@ -358,7 +373,7 @@ class PipelineEngine(DeepSpeedEngine):
                                        stages=self.num_stages,
                                        stage_id=self.stage_id)
         self._exec_schedule(sched)
-        self.agg_train_loss = self._aggregate_total_loss()
+        # self.agg_train_loss = self._aggregate_total_loss()
 
         self.timers(TRAIN_BATCH_TIMER).stop()
 
@@ -1359,6 +1374,51 @@ class PipelineEngine(DeepSpeedEngine):
                 self._exec_instr = MethodType(self._INSTRUCTION_MAP[type(cmd)], self)
                 self._exec_instr(**cmd.kwargs)
                 instr_ts1 = int(time.time() * 1E6)
-                log_client.log_client.record_instr(pid=pid, ts0=instr_ts0, ts1=instr_ts1, instr=self._INSTRCTION_NAME_MAP[type(cmd)])
+                self.log_client.record_instr(pid=pid, ts0=instr_ts0, ts1=instr_ts1, instr=self._INSTRCTION_NAME_MAP[type(cmd)])
             ts1 = int(time.time() * 1E6)
-            log_client.log_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
+            self.log_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
+        # First aggregate the loss, and then use teh bubbles.
+        self.agg_train_loss = self._aggregate_total_loss()
+        self.run_inter_step_bubbles()
+
+
+    def run_inter_step_bubbles(self):
+        bubble_start: float = time.time()
+        if self.stage_id == 2:
+            duration = 0.5
+        elif self.stage_id == 3:
+            duration = 2.0
+        if self.global_steps > 1 and (self.stage_id == 2 or self.stage_id == 3):
+            # Download and load the MNIST dataset
+            # transform = transforms.Compose([
+            #     transforms.Resize(224),  # ResNet models typically work with 224x224 images
+            #     transforms.Grayscale(3),  # Convert grayscale images to 3-channel images
+            #     transforms.ToTensor(),
+            # ])
+            # mnist_test = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+            # test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=64, shuffle=False)
+
+            # Load a pretrained ResNet model and move it to the chosen device
+            # self._resnet.eval()  # Set the model to evaluation mode
+            counter = 0
+            with torch.no_grad():
+                # resnet = resnet18(pretrained=True).to(self.device).eval()
+                resnet = self.my_resnet.model.to(self.device).eval()
+                while time.time() - bubble_start < duration:
+                    counter += 64
+                    # TODO: Fow now we use all-0 fake input.
+                    _ = resnet(torch.zeros(size=[64, 3, 224, 224], device=self.device)).to('cpu')
+                print(f'Jiashu: stage: {self.stage_id}, counter: {counter}')
+                # resnet = deepcopy(self._resnet).to(self._device)
+                # resnet.eval()
+                # for images, _ in test_loader:
+                #     if time.time() - bubble_start > duration:
+                #         break
+                #     images = images.to(self.device)
+                #     _ = resnet(images).to('cpu')
+
+        # bubble_end: float = bubble_start + duration
+        # device: str = str(self.device)
+        # self.log_client.grant_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
+        # time.sleep(duration)
+        # self.log_client.kill_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)

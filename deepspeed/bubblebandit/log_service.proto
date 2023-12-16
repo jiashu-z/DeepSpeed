@@ -11,6 +11,10 @@ service LogServer {
   rpc RecordInstr (RecordInstrEntry) returns (Empty) {}
 
   rpc Clear(Empty) returns (Empty) {}
+
+  rpc GrantBubble(GrantBubbleArgs) returns (GrantBubbleReply) {}
+
+  rpc KillBubble(KillBubbleArgs) returns (KillBubbleReply) {}
 }
 
 message LogEntry {
@@ -41,4 +45,26 @@ message RecordInstrEntry {
   int64 ts0 = 2;
   int64 ts1 = 3;
   string instr = 4;
+}
+
+message GrantBubbleArgs {
+  double start = 1;
+  double end = 2;
+  int64 stage_id = 3;
+  string device = 4;
+}
+
+message GrantBubbleReply {
+
+}
+
+message KillBubbleArgs {
+  double start = 1;
+  double end = 2;
+  int64 stage_id = 3;
+  string device = 4;
+}
+
+message KillBubbleReply {
+
 }

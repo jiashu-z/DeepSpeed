@@ -4,8 +4,8 @@ import deepspeed.bubblebandit.log_service_pb2 as log_service_pb2
 
 
 class LogClient:
-    def __init__(self):
-        self.chan = grpc.insecure_channel("localhost:50051")
+    def __init__(self, stage_id=0):
+        self.chan = grpc.insecure_channel(f"localhost:{40051 - stage_id}")
         self.stub = log_service_pb2_grpc.LogServerStub(self.chan)
 
     def write_log(self, pid: int, ts: int, msg: str) -> None:
@@ -31,20 +31,31 @@ class LogClient:
     def clear(self) -> None:
         self.stub.Clear(log_service_pb2.Empty())
 
+    def grant_bubble(self, start: float, end: float, stage_id: int, device: str) -> None:
+        args = log_service_pb2.GrantBubbleArgs(
+            start=start, end=end, stage_id=stage_id, device=device
+        )
+        self.stub.GrantBubble(args)
 
-log_client = LogClient()
+    def kill_bubble(self, start: float, end: float, stage_id: int, device: str) -> None:
+        args = log_service_pb2.KillBubbleArgs(start=start, end=end, stage_id=stage_id, device=device)
+        self.stub.KillBubble(args)
 
 
-def write_log_test():
-    global log_client
-    log_client.write_log(2, 3, "edf")
+# log_client = LogClient()
 
 
-def clear_test():
-    global log_client
-    log_client.clear()
+# def write_log_test():
+#     global log_client
+#     log_client.write_log(2, 3, "edf")
+
+
+# def clear_test():
+#     global log_client
+#     log_client.clear()
 
 
 if __name__ == "__main__":
     # write_log_test()
-    clear_test()
+    # clear_test()
+    pass
