@@ -246,7 +246,10 @@ class PipelineEngine(DeepSpeedEngine):
             self.timers(STEP_MICRO_TIMER).stop()
         
         self.log_client: LogClient = None
-        self.my_resnet: ResNetWrapper = ResNetWrapper()
+        if self.stage_id == 0 or self.stage_id == 3:
+            self.my_resnet: ResNetWrapper = ResNetWrapper()
+            self.my_resnet.model = self.my_resnet.model.to(self.device).eval()
+            self.counter = 0
 
 
     def set_has_attention_mask(self, value):
@@ -1377,18 +1380,36 @@ class PipelineEngine(DeepSpeedEngine):
                 self.log_client.record_instr(pid=pid, ts0=instr_ts0, ts1=instr_ts1, instr=self._INSTRCTION_NAME_MAP[type(cmd)])
             ts1 = int(time.time() * 1E6)
             self.log_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
+            # if i == 6 and self.stage_id == 0:
+                # self.run_intra_step_bubbles()
+            # elif i == 5 and self.stage_id == 1:
+                # self.run_intra_step_bubbles()
+            # elif i == 4 and self.stage_id == 2:
+                # self.run_intra_step_bubbles()
         # First aggregate the loss, and then use teh bubbles.
         self.agg_train_loss = self._aggregate_total_loss()
-        self.run_inter_step_bubbles()
+        if self.stage_id == 3 and self.global_steps > 1 and self.global_steps % 4 != 0:
+            self.run_inter_step_bubbles()
+
+
+    def run_intra_step_bubbles(self):
+        if self.global_steps > 1 and self.global_steps % 4 != 0:
+            bubble_start: float = time.time()
+            if self.stage_id == 0:
+                duration = 1.0
+            elif self.stage_id == 1:
+                duration = 0.5
+            # duration: float = 1.0
+            with torch.no_grad():
+                while time.time() - bubble_start < duration:
+                    self.counter += 32
+                    _ = self.my_resnet.model(torch.zeros(size=[32, 3, 224, 224]).to(self.device)).to('cpu')
 
 
     def run_inter_step_bubbles(self):
-        bubble_start: float = time.time()
-        if self.stage_id == 2:
-            duration = 0.5
-        elif self.stage_id == 3:
-            duration = 2.0
-        if self.global_steps > 1 and (self.stage_id == 2 or self.stage_id == 3):
+        if True:
+            bubble_start: float = time.time()
+            duration = 2
             # Download and load the MNIST dataset
             # transform = transforms.Compose([
             #     transforms.Resize(224),  # ResNet models typically work with 224x224 images
@@ -1400,15 +1421,13 @@ class PipelineEngine(DeepSpeedEngine):
 
             # Load a pretrained ResNet model and move it to the chosen device
             # self._resnet.eval()  # Set the model to evaluation mode
-            counter = 0
             with torch.no_grad():
                 # resnet = resnet18(pretrained=True).to(self.device).eval()
-                resnet = self.my_resnet.model.to(self.device).eval()
+                # resnet = self.my_resnet.model.eval()
                 while time.time() - bubble_start < duration:
-                    counter += 64
+                    self.counter += 32
                     # TODO: Fow now we use all-0 fake input.
-                    _ = resnet(torch.zeros(size=[64, 3, 224, 224], device=self.device)).to('cpu')
-                print(f'Jiashu: stage: {self.stage_id}, counter: {counter}')
+                    _ = self.my_resnet.model(torch.zeros(size=[32, 3, 224, 224]).to(self.device)).to('cpu')
                 # resnet = deepcopy(self._resnet).to(self._device)
                 # resnet.eval()
                 # for images, _ in test_loader:
