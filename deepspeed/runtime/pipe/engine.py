@@ -31,11 +31,11 @@ from . import schedule
 import time
 from deepspeed.bubblebandit.log_client import LogClient
 
-import torchvision
 import torchvision.transforms as transforms
-from torchvision.models import resnet152, resnet18
+# from torchvision.models import resnet152, resnet18
 from copy import copy, deepcopy
 from watchpoints import watch
+from bubblebandit.scheduler import SchedulerClient as SchedulerClient
 
 TARGET_ID = -2
 LOG_STAGE = -2
@@ -61,9 +61,11 @@ def _tensor_bytes(tensor):
     return tensor.numel() * tensor.element_size()
 
 # Cannot work without this wrapper. self.resnet will not be set because PipelineEngine somehow extends nn.Module and nn.Module overrides __setattr__ (noticed by using watch to trace self.__dict__ (will not be changed after self.resnet = resnet18()) and printing dir(self))
-class ResNetWrapper():
-    def __init__(self):
-        self.model = resnet18(pretrained=True)
+# class ResNetWrapper():
+#     def __init__(self):
+#         self.model = resnet18(pretrained=True)
+
+scheduler_client: SchedulerClient = SchedulerClient()
 
 
 class PipelineEngine(DeepSpeedEngine):
@@ -246,10 +248,10 @@ class PipelineEngine(DeepSpeedEngine):
             self.timers(STEP_MICRO_TIMER).stop()
         
         self.log_client: LogClient = None
-        if self.stage_id == 0 or self.stage_id == 3:
-            self.my_resnet: ResNetWrapper = ResNetWrapper()
-            self.my_resnet.model = self.my_resnet.model.to(self.device).eval()
-            self.counter = 0
+        # if self.stage_id == 0 or self.stage_id == 3:
+        #     self.my_resnet: ResNetWrapper = ResNetWrapper()
+        #     self.my_resnet.model = self.my_resnet.model.to(self.device).eval()
+        #     self.counter = 0
 
 
     def set_has_attention_mask(self, value):
@@ -1388,8 +1390,14 @@ class PipelineEngine(DeepSpeedEngine):
                 # self.run_intra_step_bubbles()
         # First aggregate the loss, and then use teh bubbles.
         self.agg_train_loss = self._aggregate_total_loss()
-        if self.stage_id == 3 and self.global_steps > 1 and self.global_steps % 4 != 0:
-            self.run_inter_step_bubbles()
+        if self.stage_id == 1:
+            start: float = time.time()
+            end: float = time.time() + 0.4
+            scheduler_client.add_bubble(start, end, 1, 1, "cuda:1")
+            time.sleep(0.4)
+            scheduler_client.clear_bubble(1, 1, "cuda:1")
+        # if self.stage_id == 3 and self.global_steps > 1 and self.global_steps % 4 != 0:
+        #     self.run_inter_step_bubbles()
 
 
     def run_intra_step_bubbles(self):
