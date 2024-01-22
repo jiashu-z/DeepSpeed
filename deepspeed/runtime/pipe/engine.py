@@ -65,7 +65,7 @@ def _tensor_bytes(tensor):
 #     def __init__(self):
 #         self.model = resnet18(pretrained=True)
 
-scheduler_client: SchedulerClient = SchedulerClient()
+scheduler_client: SchedulerClient = SchedulerClient("localhost:40052")
 
 
 class PipelineEngine(DeepSpeedEngine):
@@ -1390,12 +1390,12 @@ class PipelineEngine(DeepSpeedEngine):
                 # self.run_intra_step_bubbles()
         # First aggregate the loss, and then use teh bubbles.
         self.agg_train_loss = self._aggregate_total_loss()
-        if self.stage_id == 1:
+        if self.stage_id == 3:
             start: float = time.time()
-            end: float = time.time() + 0.4
-            scheduler_client.add_bubble(start, end, 1, 1, "cuda:1")
-            time.sleep(0.4)
-            scheduler_client.clear_bubble(1, 1, "cuda:1")
+            end: float = time.time() + 1
+            scheduler_client.add_bubble(start, end, 1, 1, "cuda:3")
+            time.sleep(1.0)
+            scheduler_client.clear_bubble(1, 1, "cuda:3")
         # if self.stage_id == 3 and self.global_steps > 1 and self.global_steps % 4 != 0:
         #     self.run_inter_step_bubbles()
 
