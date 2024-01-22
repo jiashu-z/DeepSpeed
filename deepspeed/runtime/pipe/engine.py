@@ -29,12 +29,7 @@ from . import p2p
 from . import schedule
 
 import time
-from deepspeed.bubblebandit.log_client import LogClient
-
-import torchvision.transforms as transforms
-# from torchvision.models import resnet152, resnet18
-from copy import copy, deepcopy
-from watchpoints import watch
+from bubblebandit.logger import LoggerClient as LoggerClient
 from bubblebandit.scheduler import SchedulerClient as SchedulerClient
 
 TARGET_ID = -2
@@ -247,7 +242,7 @@ class PipelineEngine(DeepSpeedEngine):
             self.timers(STEP_MICRO_TIMER).start()
             self.timers(STEP_MICRO_TIMER).stop()
         
-        self.log_client: LogClient = None
+        self.logger_client: LoggerClient = None # type: ignore
         # if self.stage_id == 0 or self.stage_id == 3:
         #     self.my_resnet: ResNetWrapper = ResNetWrapper()
         #     self.my_resnet.model = self.my_resnet.model.to(self.device).eval()
@@ -1379,9 +1374,9 @@ class PipelineEngine(DeepSpeedEngine):
                 self._exec_instr = MethodType(self._INSTRUCTION_MAP[type(cmd)], self)
                 self._exec_instr(**cmd.kwargs)
                 instr_ts1 = int(time.time() * 1E6)
-                self.log_client.record_instr(pid=pid, ts0=instr_ts0, ts1=instr_ts1, instr=self._INSTRCTION_NAME_MAP[type(cmd)])
+                self.logger_client.record_instr(pid=pid, ts0=instr_ts0, ts1=instr_ts1, instr=self._INSTRCTION_NAME_MAP[type(cmd)])
             ts1 = int(time.time() * 1E6)
-            self.log_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
+            self.logger_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
             # if i == 6 and self.stage_id == 0:
                 # self.run_intra_step_bubbles()
             # elif i == 5 and self.stage_id == 1:
@@ -1446,6 +1441,6 @@ class PipelineEngine(DeepSpeedEngine):
 
         # bubble_end: float = bubble_start + duration
         # device: str = str(self.device)
-        # self.log_client.grant_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
+        # self.logger_client.grant_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
         # time.sleep(duration)
-        # self.log_client.kill_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
+        # self.logger_client.kill_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
