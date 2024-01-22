@@ -1389,7 +1389,7 @@ class PipelineEngine(DeepSpeedEngine):
             start: float = time.time()
             end: float = time.time() + 1
             scheduler_client.add_bubble(start, end, 1, 1, "cuda:3")
-            time.sleep(1.0)
+            # time.sleep(1.0)
             scheduler_client.clear_bubble(1, 1, "cuda:3")
         # if self.stage_id == 3 and self.global_steps > 1 and self.global_steps % 4 != 0:
         #     self.run_inter_step_bubbles()
