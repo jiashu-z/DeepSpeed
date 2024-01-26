@@ -32,6 +32,8 @@ import time
 from bubblebandit.logger import LoggerClient as LoggerClient
 from bubblebandit.scheduler import SchedulerClient as SchedulerClient
 
+from torchvision.models import resnet18
+
 TARGET_ID = -2
 LOG_STAGE = -2
 DATA_PARALLEL_ID = -2
@@ -243,10 +245,10 @@ class PipelineEngine(DeepSpeedEngine):
             self.timers(STEP_MICRO_TIMER).stop()
         
         self.logger_client: LoggerClient = None # type: ignore
-        # if self.stage_id == 0 or self.stage_id == 3:
-        #     self.my_resnet: ResNetWrapper = ResNetWrapper()
-        #     self.my_resnet.model = self.my_resnet.model.to(self.device).eval()
-        #     self.counter = 0
+        if self.stage_id == 3:
+            # self.my_resnet: ResNetWrapper = ResNetWrapper()
+            # self.my_resnet.model = self.my_resnet.model.to(self.device).eval()
+            self.counter = 0
 
 
     def set_has_attention_mask(self, value):
@@ -372,8 +374,12 @@ class PipelineEngine(DeepSpeedEngine):
         sched = schedule.TrainSchedule(micro_batches=self.micro_batches,
                                        stages=self.num_stages,
                                        stage_id=self.stage_id)
+        if self.stage_id == 3 and self.global_steps > 1:
+            start: float = time.time()
+            end: float = start + 1.5
+            scheduler_client.add_bubble(start, end, 1, 1, "cuda:3")
         self._exec_schedule(sched)
-        # self.agg_train_loss = self._aggregate_total_loss()
+        self.agg_train_loss = self._aggregate_total_loss()
 
         self.timers(TRAIN_BATCH_TIMER).stop()
 
@@ -1362,7 +1368,7 @@ class PipelineEngine(DeepSpeedEngine):
         # For each step in the schedule
         for step_cmds in pipe_schedule:
             # For each instruction in the step
-            pid = os.getpid()
+            pid = self.stage_id
             ts = int(time.time() * 1E6)
             # log_client.log_client.dump_sched(pid=pid, ts=ts, msg=f'start, {repr(step_cmds)}')
             for cmd in step_cmds:
@@ -1377,22 +1383,12 @@ class PipelineEngine(DeepSpeedEngine):
                 self.logger_client.record_instr(pid=pid, ts0=instr_ts0, ts1=instr_ts1, instr=self._INSTRCTION_NAME_MAP[type(cmd)])
             ts1 = int(time.time() * 1E6)
             self.logger_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
-            # if i == 6 and self.stage_id == 0:
-                # self.run_intra_step_bubbles()
-            # elif i == 5 and self.stage_id == 1:
-                # self.run_intra_step_bubbles()
-            # elif i == 4 and self.stage_id == 2:
-                # self.run_intra_step_bubbles()
-        # First aggregate the loss, and then use teh bubbles.
-        self.agg_train_loss = self._aggregate_total_loss()
-        if self.stage_id == 3:
-            start: float = time.time()
-            end: float = time.time() + 1
-            scheduler_client.add_bubble(start, end, 1, 1, "cuda:3")
-            # time.sleep(1.0)
-            scheduler_client.clear_bubble(1, 1, "cuda:3")
+        # if self.stage_id == 3 and self.global_steps > 1 and self.global_steps % 4 != 1:
+            # start: float = time.time()
+            # end: float = start + 1.5
+            # scheduler_client.add_bubble(start, end, 1, 1, "cuda:3")
         # if self.stage_id == 3 and self.global_steps > 1 and self.global_steps % 4 != 0:
-        #     self.run_inter_step_bubbles()
+            # self.run_inter_step_bubbles()
 
 
     def run_intra_step_bubbles(self):
@@ -1412,7 +1408,7 @@ class PipelineEngine(DeepSpeedEngine):
     def run_inter_step_bubbles(self):
         if True:
             bubble_start: float = time.time()
-            duration = 2
+            duration = 1.5
             # Download and load the MNIST dataset
             # transform = transforms.Compose([
             #     transforms.Resize(224),  # ResNet models typically work with 224x224 images
