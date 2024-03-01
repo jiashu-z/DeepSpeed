@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0
-import os
 # DeepSpeed Team
 
 from types import MethodType
@@ -32,7 +31,6 @@ import time
 from bubblebandit.logger import LoggerClient as LoggerClient
 from bubblebandit.scheduler_v1 import SchedulerClient as SchedulerClient
 
-from torchvision.models import resnet18
 from typing import Optional
 
 TARGET_ID = -2
@@ -244,12 +242,8 @@ class PipelineEngine(DeepSpeedEngine):
             self.timers(STEP_MICRO_TIMER).stop()
         
         self.scheduler_client: Optional[SchedulerClient] = None
-        self.logger_client: LoggerClient = None # type: ignore
+        self.logger_client: Optional[LoggerClient] = None # type: ignore
         self.stage_bubble_durations: dict[int, float] = {}
-        if self.stage_id == 3:
-            # self.my_resnet: ResNetWrapper = ResNetWrapper()
-            # self.my_resnet.model = self.my_resnet.model.to(self.device).eval()
-            self.counter = 0
 
 
     def set_has_attention_mask(self, value):
@@ -1372,6 +1366,8 @@ class PipelineEngine(DeepSpeedEngine):
         return (s, s + self.stage_bubble_durations[self.stage_id])
 
     def _exec_schedule(self, pipe_schedule):
+        assert self.logger_client is not None
+        assert self.scheduler_client is not None
         # Reserve and reset buffers.
         self._reserve_pipe_buffers(pipe_schedule.num_pipe_buffers())
         self.fwd_outputs = []
@@ -1397,65 +1393,12 @@ class PipelineEngine(DeepSpeedEngine):
             self.logger_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
             step_num += 1
             if step_num == 7 and self.stage_id == 0 and self.global_steps > 1:
-                assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se()
                 self.logger_client.write_bubble(s, e, 0, self.global_rank, "cuda:0")
                 self.scheduler_client.add_bubble(s, e, 0, self.global_rank, "cuda:0")
             elif step_num == 6 and self.stage_id == 1 and self.global_steps > 1:
-                assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se()
                 self.logger_client.write_bubble(s, e, 1, self.global_rank, "cuda:1")
                 self.scheduler_client.add_bubble(s, e, 1, self.global_rank, "cuda:1")
-
-
-    def run_intra_step_bubbles(self):
-        if self.global_steps > 1 and self.global_steps % 4 != 0:
-            bubble_start: float = time.time()
-            if self.stage_id == 0:
-                duration = 1.0
-            elif self.stage_id == 1:
-                duration = 0.5
-            # duration: float = 1.0
-            with torch.no_grad():
-                while time.time() - bubble_start < duration:
-                    self.counter += 32
-                    _ = self.my_resnet.model(torch.zeros(size=[32, 3, 224, 224]).to(self.device)).to('cpu')
-
-
-    def run_inter_step_bubbles(self):
-        if True:
-            bubble_start: float = time.time()
-            duration = 1.5
-            # Download and load the MNIST dataset
-            # transform = transforms.Compose([
-            #     transforms.Resize(224),  # ResNet models typically work with 224x224 images
-            #     transforms.Grayscale(3),  # Convert grayscale images to 3-channel images
-            #     transforms.ToTensor(),
-            # ])
-            # mnist_test = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
-            # test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=64, shuffle=False)
-
-            # Load a pretrained ResNet model and move it to the chosen device
-            # self._resnet.eval()  # Set the model to evaluation mode
-            with torch.no_grad():
-                # resnet = resnet18(pretrained=True).to(self.device).eval()
-                # resnet = self.my_resnet.model.eval()
-                while time.time() - bubble_start < duration:
-                    self.counter += 32
-                    # TODO: Fow now we use all-0 fake input.
-                    _ = self.my_resnet.model(torch.zeros(size=[32, 3, 224, 224]).to(self.device)).to('cpu')
-                # resnet = deepcopy(self._resnet).to(self._device)
-                # resnet.eval()
-                # for images, _ in test_loader:
-                #     if time.time() - bubble_start > duration:
-                #         break
-                #     images = images.to(self.device)
-                #     _ = resnet(images).to('cpu')
-
-        # bubble_end: float = bubble_start + duration
-        # device: str = str(self.device)
-        # self.logger_client.grant_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
-        # time.sleep(duration)
-        # self.logger_client.kill_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
