@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0
-import os
 # DeepSpeed Team
 
 from types import MethodType
@@ -32,7 +31,6 @@ import time
 from bubblebandit.logger import LoggerClient as LoggerClient
 from bubblebandit.scheduler_v1 import SchedulerClient as SchedulerClient
 
-from torchvision.models import resnet18
 from typing import Optional
 
 TARGET_ID = -2
@@ -1379,6 +1377,8 @@ class PipelineEngine(DeepSpeedEngine):
         return (s, s + self.stage_bubble_durations[(self.stage_id, type)])
 
     def _exec_schedule(self, pipe_schedule):
+        assert self.logger_client is not None
+        assert self.scheduler_client is not None
         # Reserve and reset buffers.
         self._reserve_pipe_buffers(pipe_schedule.num_pipe_buffers())
         self.fwd_outputs = []
@@ -1404,13 +1404,11 @@ class PipelineEngine(DeepSpeedEngine):
             self.logger_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
             step_num += 1
             if step_num == 7 and self.stage_id == 0 and self.global_steps > 1:
-                assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
                 self.logger_client.write_bubble(s, e, 0, self.global_rank, "cuda:0")
                 self.scheduler_client.add_bubble(s, e, 0, self.global_rank, "cuda:0")
             elif step_num == 6 and self.stage_id == 1 and self.global_steps > 1:
-                assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
                 self.logger_client.write_bubble(s, e, 1, self.global_rank, "cuda:1")
