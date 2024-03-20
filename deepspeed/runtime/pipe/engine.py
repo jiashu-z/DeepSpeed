@@ -370,7 +370,7 @@ class PipelineEngine(DeepSpeedEngine):
                                        stages=self.num_stages,
                                        stage_id=self.stage_id)
 
-        if self.global_steps > 1 and not self.stage_id == 0:
+        if self.global_steps > 1 and (not self.stage_id == 0) and (not self.global_steps % 5 == 0):
             s, e = self.get_bubble_se("A")
             assert self.scheduler_client is not None
             self.logger_client.write_bubble(s, e, self.stage_id, self.global_rank, f"cuda:{self.stage_id}")
@@ -378,7 +378,8 @@ class PipelineEngine(DeepSpeedEngine):
 
         self._exec_schedule(sched)
 
-        if self.global_steps > 1 and self.stage_id in (1, 2):
+        print(f"stage_id: {self.stage_id}, global_steps: {self.global_steps}")
+        if self.global_steps > 1 and (self.stage_id in (1, 2)) and (not self.global_steps % 5 == 0):
             torch.cuda.synchronize()
             s, e = self.get_bubble_se("C")
             assert self.scheduler_client is not None
@@ -1377,8 +1378,6 @@ class PipelineEngine(DeepSpeedEngine):
         return (s, s + self.stage_bubble_durations[(self.stage_id, type)])
 
     def _exec_schedule(self, pipe_schedule):
-        assert self.logger_client is not None
-        assert self.scheduler_client is not None
         # Reserve and reset buffers.
         self._reserve_pipe_buffers(pipe_schedule.num_pipe_buffers())
         self.fwd_outputs = []
@@ -1403,88 +1402,37 @@ class PipelineEngine(DeepSpeedEngine):
             ts1 = int(time.time() * 1E6)
             self.logger_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
             step_num += 1
-            if step_num == 7 and self.stage_id == 0 and self.global_steps > 1:
+            if step_num == 7 and self.stage_id == 0 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
                 self.logger_client.write_bubble(s, e, 0, self.global_rank, "cuda:0")
                 self.scheduler_client.add_bubble(s, e, 0, self.global_rank, "cuda:0")
-            elif step_num == 6 and self.stage_id == 1 and self.global_steps > 1:
+            elif step_num == 6 and self.stage_id == 1 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
                 self.logger_client.write_bubble(s, e, 1, self.global_rank, "cuda:1")
                 self.scheduler_client.add_bubble(s, e, 1, self.global_rank, "cuda:1")
-            elif step_num == 5 and self.stage_id == 2 and self.global_steps > 1:
+            elif step_num == 5 and self.stage_id == 2 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
                 assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
                 self.logger_client.write_bubble(s, e, 1, self.global_rank, "cuda:2")
                 self.scheduler_client.add_bubble(s, e, 1, self.global_rank, "cuda:2")
-            if self.stage_id == 0 and step_num in (9, 11, 13) and self.global_steps > 1:
+            if self.stage_id == 0 and step_num in (9, 11, 13) and self.global_steps > 1 and (not self.global_steps % 5 == 0):
                 assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("D")
                 self.logger_client.write_bubble(s, e, 0, self.global_rank, "cuda:0")
                 self.scheduler_client.add_bubble(s, e, 0, self.global_rank, "cuda:0")
-            elif self.stage_id == 1 and step_num in (10, 12) and self.global_steps > 1:
+            elif self.stage_id == 1 and step_num in (10, 12) and self.global_steps > 1 and (not self.global_steps % 5 == 0):
                 assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("D")
                 self.logger_client.write_bubble(s, e, 1, self.global_rank, "cuda:1")
                 self.scheduler_client.add_bubble(s, e, 1, self.global_rank, "cuda:1")
-            elif self.stage_id == 2 and step_num == 11 and self.global_steps > 1:
+            elif self.stage_id == 2 and step_num == 11 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
                 assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("D")
                 self.logger_client.write_bubble(s, e, 2, self.global_rank, "cuda:2")
                 self.scheduler_client.add_bubble(s, e, 2, self.global_rank, "cuda:2")
-
-
-    def run_intra_step_bubbles(self):
-        if self.global_steps > 1 and self.global_steps % 4 != 0:
-            bubble_start: float = time.time()
-            if self.stage_id == 0:
-                duration = 1.0
-            elif self.stage_id == 1:
-                duration = 0.5
-            # duration: float = 1.0
-            with torch.no_grad():
-                while time.time() - bubble_start < duration:
-                    self.counter += 32
-                    _ = self.my_resnet.model(torch.zeros(size=[32, 3, 224, 224]).to(self.device)).to('cpu')
-
-
-    def run_inter_step_bubbles(self):
-        if True:
-            bubble_start: float = time.time()
-            duration = 1.5
-            # Download and load the MNIST dataset
-            # transform = transforms.Compose([
-            #     transforms.Resize(224),  # ResNet models typically work with 224x224 images
-            #     transforms.Grayscale(3),  # Convert grayscale images to 3-channel images
-            #     transforms.ToTensor(),
-            # ])
-            # mnist_test = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
-            # test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=64, shuffle=False)
-
-            # Load a pretrained ResNet model and move it to the chosen device
-            # self._resnet.eval()  # Set the model to evaluation mode
-            with torch.no_grad():
-                # resnet = resnet18(pretrained=True).to(self.device).eval()
-                # resnet = self.my_resnet.model.eval()
-                while time.time() - bubble_start < duration:
-                    self.counter += 32
-                    # TODO: Fow now we use all-0 fake input.
-                    _ = self.my_resnet.model(torch.zeros(size=[32, 3, 224, 224]).to(self.device)).to('cpu')
-                # resnet = deepcopy(self._resnet).to(self._device)
-                # resnet.eval()
-                # for images, _ in test_loader:
-                #     if time.time() - bubble_start > duration:
-                #         break
-                #     images = images.to(self.device)
-                #     _ = resnet(images).to('cpu')
-
-        # bubble_end: float = bubble_start + duration
-        # device: str = str(self.device)
-        # self.logger_client.grant_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
-        # time.sleep(duration)
-        # self.logger_client.kill_bubble(start=bubble_start, end=bubble_end, stage_id=stage_id, device=device)
