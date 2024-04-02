@@ -1403,11 +1403,13 @@ class PipelineEngine(DeepSpeedEngine):
             self.logger_client.dump_step_sched(pid=pid, ts0=ts, ts1=ts1, msg=f'{repr(step_cmds)}')
             step_num += 1
             if step_num == 7 and self.stage_id == 0 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
+                assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
                 self.logger_client.write_bubble(s, e, 0, self.global_rank, "cuda:0")
                 self.scheduler_client.add_bubble(s, e, 0, self.global_rank, "cuda:0")
             elif step_num == 6 and self.stage_id == 1 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
+                assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
                 self.logger_client.write_bubble(s, e, 1, self.global_rank, "cuda:1")
@@ -1416,9 +1418,9 @@ class PipelineEngine(DeepSpeedEngine):
                 assert self.scheduler_client is not None
                 torch.cuda.synchronize()
                 s, e = self.get_bubble_se("B")
-                self.logger_client.write_bubble(s, e, 1, self.global_rank, "cuda:2")
-                self.scheduler_client.add_bubble(s, e, 1, self.global_rank, "cuda:2")
-            if self.stage_id == 0 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
+                self.logger_client.write_bubble(s, e, 2, self.global_rank, "cuda:2")
+                self.scheduler_client.add_bubble(s, e, 2, self.global_rank, "cuda:2")
+            elif self.stage_id == 0 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
                 step_nums_for_mini_batch_number = {
                     4: [9, 11, 13],
                     5: [11, 13, 15],
