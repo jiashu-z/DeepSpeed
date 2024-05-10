@@ -1379,37 +1379,19 @@ class PipelineEngine(DeepSpeedEngine):
                 s, e = self.get_bubble_se("B")
                 self.scheduler_client.add_bubble(s, e, 2, self.global_rank, "cuda:2")
             elif self.stage_id == 0 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
-                step_nums_for_mini_batch_number = {
-                    4: [9, 11, 13],
-                    5: [11, 13, 15],
-                    6: [13, 15, 17],
-                    7: [15, 17, 19],
-                    8: [17, 19, 21],
-                }
+                step_nums_for_mini_batch_number = { 4: [9, 11, 13], 5: [11, 13, 15], 6: [13, 15, 17], 7: [15, 17, 19], 8: [17, 19, 21], }
                 if step_num in step_nums_for_mini_batch_number[self.micro_batches]:
                     torch.cuda.synchronize()
                     s, e = self.get_bubble_se("D")
                     self.scheduler_client.add_bubble(s, e, 0, self.global_rank, "cuda:0")
             elif self.stage_id == 1 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
-                step_nums_for_mini_batch_number = {
-                    4: [10, 12],
-                    5: [12, 14],
-                    6: [14, 16],
-                    7: [16, 18],
-                    8: [18, 20],
-                }
+                step_nums_for_mini_batch_number = { 4: [10, 12], 5: [12, 14], 6: [14, 16], 7: [16, 18], 8: [18, 20], }
                 if step_num in step_nums_for_mini_batch_number[self.micro_batches]:
                     torch.cuda.synchronize()
                     s, e = self.get_bubble_se("D")
                     self.scheduler_client.add_bubble(s, e, 1, self.global_rank, "cuda:1")
             elif self.stage_id == 2 and self.global_steps > 1 and (not self.global_steps % 5 == 0):
-                step_nums_for_mini_batch_number = {
-                    4: [11],
-                    5: [13],
-                    6: [15],
-                    7: [17],
-                    8: [19],
-                }
+                step_nums_for_mini_batch_number = { 4: [11], 5: [13], 6: [15], 7: [17], 8: [19], }
                 if step_num in step_nums_for_mini_batch_number[self.micro_batches]:
                     torch.cuda.synchronize()
                     s, e = self.get_bubble_se("D")
