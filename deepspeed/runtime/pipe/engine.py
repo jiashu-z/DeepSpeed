@@ -369,14 +369,13 @@ class PipelineEngine(DeepSpeedEngine):
             self.scheduler_client.add_bubble(s, e, self.stage_id, self.global_rank, f"cuda:{self.stage_id}")
 
         self._exec_schedule(sched)
+        self.agg_train_loss = self._aggregate_total_loss()
 
         print(f"stage_id: {self.stage_id}, global_steps: {self.global_steps}")
         if self.global_steps > 1 and (self.stage_id in (1, 2)) and (not self.global_steps % 5 == 0):
             torch.cuda.synchronize()
             s, e = self.get_bubble_se("C")
             self.scheduler_client.add_bubble(s, e, self.stage_id, self.global_rank, f"cuda:{self.stage_id}")
-
-        self.agg_train_loss = self._aggregate_total_loss()
         self.timers(TRAIN_BATCH_TIMER).stop()
 
         if self.global_steps % self.steps_per_print() == 0:
