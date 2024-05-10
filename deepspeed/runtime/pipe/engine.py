@@ -32,7 +32,6 @@ import time
 from bubblebandit.logger import LoggerClient as LoggerClient
 from bubblebandit.scheduler_v1 import SchedulerClient as SchedulerClient
 from typing import Optional
-
 TARGET_ID = -2
 LOG_STAGE = -2
 DATA_PARALLEL_ID = -2
@@ -241,7 +240,6 @@ class PipelineEngine(DeepSpeedEngine):
         self.logger_client: LoggerClient = None # type: ignore
         self.stage_bubble_durations: dict[tuple[int, str], float] = {}
 
-
     def set_has_attention_mask(self, value):
         assert isinstance(value, bool)
         self.has_attention_mask = value
@@ -369,7 +367,6 @@ class PipelineEngine(DeepSpeedEngine):
         if self.global_steps > 1 and (not self.stage_id == 0) and (not self.global_steps % 5 == 0):
             s, e = self.get_bubble_se("A")
             self.scheduler_client.add_bubble(s, e, self.stage_id, self.global_rank, f"cuda:{self.stage_id}")
-
         self._exec_schedule(sched)
         self.agg_train_loss = self._aggregate_total_loss()
 
@@ -1350,7 +1347,6 @@ class PipelineEngine(DeepSpeedEngine):
         if type != "A":
             duration -= 0.02
         return (s, s + duration)
-
     def _exec_schedule(self, pipe_schedule):
         # Reserve and reset buffers.
         self._reserve_pipe_buffers(pipe_schedule.num_pipe_buffers())
