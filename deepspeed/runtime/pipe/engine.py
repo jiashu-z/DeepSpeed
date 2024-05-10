@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0
+
 # DeepSpeed Team
 
 from types import MethodType
@@ -30,7 +31,6 @@ from . import schedule
 import time
 from bubblebandit.logger import LoggerClient as LoggerClient
 from bubblebandit.scheduler_v1 import SchedulerClient as SchedulerClient
-
 from typing import Optional
 
 TARGET_ID = -2
@@ -56,6 +56,7 @@ mem_cached = 0
 def _tensor_bytes(tensor):
     return tensor.numel() * tensor.element_size()
 
+
 class PipelineEngine(DeepSpeedEngine):
     """ A training engine hybrid pipeline, data, and model parallel training.
 
@@ -74,6 +75,7 @@ class PipelineEngine(DeepSpeedEngine):
 
         assert self.zero_optimization_stage(
         ) < ZeroStageEnum.gradients, "ZeRO-2 and ZeRO-3 are incompatible with pipeline parallelism"
+
         # We schedule the all-reduces, so disable it in super().backward()
         self.enable_backward_allreduce = False
         self.has_bool_tensors = has_bool_tensors
