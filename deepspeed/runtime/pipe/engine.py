@@ -1375,7 +1375,10 @@ class PipelineEngine(DeepSpeedEngine):
 
     def get_bubble_se(self, type: str) -> tuple[float, float]:
         s: float = time.time()
-        return (s, s + self.stage_bubble_durations[(self.stage_id, type)])
+        duration: float = self.stage_bubble_durations[(self.stage_id, type)]
+        if type != "A":
+            duration -= 0.02
+        return (s, s + duration)
 
     def _exec_schedule(self, pipe_schedule):
         # Reserve and reset buffers.
